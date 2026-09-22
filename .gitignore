@@ -1,0 +1,4 @@
+# Build output (objects, temporary isodir)
+build/
+
+kfs-2.pdf
