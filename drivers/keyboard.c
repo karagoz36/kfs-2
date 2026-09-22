@@ -16,6 +16,7 @@
 #define PS2_DATA_PORT   0x60
 #define PS2_STATUS_PORT 0x64
 #define PS2_OUTPUT_FULL 0x01  /* status register bit 0: data available */
+#define PS2_CMD_RESET   0xFE  /* controller command: pulse the CPU reset line */
 
 #define SC_RELEASE_FLAG 0x80  /* the bit that marks break codes */
 #define SC_EXTENDED     0xE0  /* some keys send two bytes */
@@ -92,25 +93,26 @@ static bool_t handle_shortcut(uint8_t code)
 /*
 ** Reads and handles a pending scancode, if any.
 ** Called continuously from the main loop in kernel_main.
+** Returns the character typed, or 0 when there is nothing to print (no key,
+** a key release, a modifier, a screen-switch shortcut).
 */
-void keyboard_poll(void)
+char keyboard_poll(void)
 {
 	uint8_t status;
 	uint8_t scancode;
 	uint8_t code;
 	bool_t  pressed;
-	char    c;
 
 	status = inb(PS2_STATUS_PORT);
 	if (!(status & PS2_OUTPUT_FULL))
-		return ;
+		return (0);
 	scancode = inb(PS2_DATA_PORT);
 
 	/* 0xE0 is a prefix: the real code arrives with the next read */
 	if (scancode == SC_EXTENDED)
 	{
 		g_extended = TRUE;
-		return ;
+		return (0);
 	}
 
 	/* Bit 7 tells a release from a press; clearing it gives the key itself.
@@ -121,22 +123,30 @@ void keyboard_poll(void)
 	if (handle_modifier(code, pressed))
 	{
 		g_extended = FALSE;
-		return ;
+		return (0);
 	}
 
 	/* Only key presses are handled; releases are ignored */
 	if (!pressed || g_extended)
 	{
 		g_extended = FALSE;
-		return ;
+		return (0);
 	}
 
 	if (handle_shortcut(code))
-		return ;
+		return (0);
 
 	/* The scancode indexes the table directly; a 0 entry means the key has no
 	** printable character (function keys, caps lock, ...). */
-	c = g_shift ? g_keymap_shift[code] : g_keymap[code];
-	if (c != 0)
-		console_putchar(c);
+	return (g_shift ? g_keymap_shift[code] : g_keymap[code]);
+}
+
+/*
+** Reboot (bonus): writing 0xFE to the controller's command port (the same
+** port 0x64 that is read for the status) makes it pulse the CPU reset line.
+** This is the classic pre-ACPI way to restart a PC.
+*/
+void keyboard_reboot(void)
+{
+	outb(PS2_STATUS_PORT, PS2_CMD_RESET);
 }

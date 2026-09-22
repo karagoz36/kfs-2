@@ -28,8 +28,11 @@ align 4
 ; GRUB cannot be trusted. C code cannot run without a stack, so we reserve
 ; 16 KB in .bss (which does not grow the binary).
 ; The x86 System V ABI requires the stack to be 16-byte aligned.
+; Both ends are exported so the C side can print the stack (KFS-2).
 section .bss
 align 16
+global stack_bottom
+global stack_top
 stack_bottom:
 	resb 16384
 stack_top:
@@ -41,6 +44,9 @@ extern kernel_main
 _start:
 	; The stack grows downwards on x86, so esp points at the top.
 	mov esp, stack_top
+	; A zero frame pointer marks the end of the call chain: the stack printer
+	; walks saved ebp values and stops when it reaches this 0.
+	xor ebp, ebp
 
 	; Hand over to the C side. This call is not expected to return.
 	call kernel_main

@@ -16,11 +16,12 @@ typedef __builtin_va_list va_list_t;
 #define VA_END(ap)         __builtin_va_end(ap)
 
 /*
-** Prints an unsigned number in the requested base (10 or 16).
+** Prints an unsigned number in the requested base (10 or 16), left-padded
+** with zeros up to 'width' digits (0 = no padding).
 ** Division yields the digits in reverse order, so they are collected in a
 ** temporary buffer and then printed backwards.
 */
-static void print_uint(uint32_t value, uint32_t base)
+static void print_uint(uint32_t value, uint32_t base, size_t width)
 {
 	const char *digits = "0123456789abcdef";
 	char        tmp[32];
@@ -35,6 +36,8 @@ static void print_uint(uint32_t value, uint32_t base)
 		tmp[len++] = digits[value % base];
 		value /= base;
 	}
+	while (len < width)
+		tmp[len++] = '0';
 	while (len > 0)
 		console_putchar(tmp[--len]);
 }
@@ -55,13 +58,14 @@ static void print_int(int32_t value)
 	}
 	else
 		magnitude = (uint32_t)value;
-	print_uint(magnitude, 10);
+	print_uint(magnitude, 10, 0);
 }
 
 void printk(const char *format, ...)
 {
 	va_list_t ap;
 	size_t    i = 0;
+	size_t    width;
 
 	VA_START(ap, format);
 	while (format[i] != '\0')
@@ -73,6 +77,15 @@ void printk(const char *format, ...)
 			continue ;
 		}
 		i++;
+		/* Optional zero padding: "%08x" prints 8 hex digits (KFS-2, used to
+		** align the columns of the stack and GDT dumps) */
+		width = 0;
+		if (format[i] == '0')
+		{
+			i++;
+			while (format[i] >= '0' && format[i] <= '9')
+				width = width * 10 + (size_t)(format[i++] - '0');
+		}
 		/* char is promoted to int when passed through '...', so it has to be
 		** read back as an int and narrowed afterwards. */
 		if (format[i] == 'c')
@@ -86,14 +99,14 @@ void printk(const char *format, ...)
 		else if (format[i] == 'd' || format[i] == 'i')
 			print_int(VA_ARG(ap, int32_t));
 		else if (format[i] == 'u')
-			print_uint(VA_ARG(ap, uint32_t), 10);
+			print_uint(VA_ARG(ap, uint32_t), 10, width);
 		else if (format[i] == 'x')
-			print_uint(VA_ARG(ap, uint32_t), 16);
+			print_uint(VA_ARG(ap, uint32_t), 16, width);
 		else if (format[i] == 'p')
 		{
 			/* Pointers are printed as 0x... in hexadecimal */
 			console_write("0x");
-			print_uint((uint32_t)VA_ARG(ap, void *), 16);
+			print_uint((uint32_t)VA_ARG(ap, void *), 16, width);
 		}
 		else if (format[i] == '%')
 			console_putchar('%');

@@ -11,6 +11,13 @@ ENTRY(_start)
 SECTIONS
 {
 	/*
+	** The GDT (KFS-2) must sit at physical address 0x800. That is below the
+	** 1 MB GRUB loads us at, so it cannot be a real section: the symbol just
+	** names the address and kernel/gdt.c fills the table at run time.
+	*/
+	gdt_table = 0x00000800;
+
+	/*
 	** The kernel is placed at 1 MB: the first megabyte holds the BIOS, the
 	** VGA framebuffer and other device regions, which are not safe to write.
 	*/

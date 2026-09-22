@@ -5,6 +5,7 @@
 #ifndef KEYBOARD_H
 #define KEYBOARD_H
 
-void keyboard_poll(void);
+char keyboard_poll(void);
+void keyboard_reboot(void);
 
 #endif
