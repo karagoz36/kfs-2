@@ -13,6 +13,12 @@ make check      # verifies the multiboot header and the 10 MB limit
 
 Requirements: gcc (32-bit target), nasm, ld, grub-mkrescue, xorriso, qemu-system-i386.
 
+On macOS there is no native toolchain: `make docker` builds the ISO inside a
+Linux container (see [Dockerfile](Dockerfile)), then `make run` boots it with
+the host QEMU. `make check` also works there: `grub-file` does not exist on
+macOS, so the multiboot check runs in the container. `make docker-shell`
+opens a shell in it.
+
 ## What kfs-2 adds
 
 ### Global Descriptor Table at 0x800
